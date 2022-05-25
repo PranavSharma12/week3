@@ -126,8 +126,7 @@ const buildEddsaModule = async (): Promise<EdDSA> => {
  */
 const genRandomBabyJubValue = (): bigint => {
   // Prevent modulo bias
-  //const lim = BigInt('0x10000000000000000000000000000000000000000000000000000000000000000')
-  //const min = (lim - SNARK_FIELD_SIZE) % SNARK_FIELD_SIZE
+  
   const min = BigInt(
     '6350874878119819312338956282401532410528162663560392320966563075034087161851',
   );
@@ -239,6 +238,16 @@ const encrypt = async (
 ): Promise<Ciphertext> => {
   const mimc7 = await buildMimc7();
   // [assignment] generate the IV, use Mimc7 to hash the shared key with the IV, then encrypt the plain text
+  const iv = mimc7.multiHash(plaintext, BigInt(0));
+
+  const ciphertext: Ciphertext = {
+    iv: buf2Bigint(iv),
+    data: plaintext.map((e: bigint, i: number): bigint => {
+      return e + buf2Bigint(mimc7.hash(sharedKey, buf2Bigint(iv) + BigInt(i)));
+    }),
+  };
+
+  return ciphertext;
 };
 
 /*
@@ -250,6 +259,14 @@ const decrypt = async (
   sharedKey: EcdhSharedKey,
 ): Promise<Plaintext> => {
   // [assignment] use Mimc7 to hash the shared key with the IV, then descrypt the ciphertext
+  const mimc7 = await buildMimc7();
+  const plaintext: Plaintext = ciphertext.data.map(
+    (e: bigint, i: number): bigint => {
+      return e - buf2Bigint(mimc7.hash(sharedKey, ciphertext.iv + BigInt(i)));
+    },
+  );
+
+  return plaintext;
 };
 
 export {
